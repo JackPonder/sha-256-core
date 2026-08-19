@@ -1,0 +1,59 @@
+# VS Code
+.vscode/
+
+# Log files
+*.log
+*.jou
+*.rpt
+*.vdi
+
+# Bitstream
+*.bit
+*.bin
+*.mcs
+*.svf
+*.image
+
+# Netlist
+*.edf
+*.edif
+*.vn
+*.vm
+
+# SDF
+*.sdf
+
+# Sim dump
+*.vcd
+*.saif
+*.tcf
+*.wdb
+*.wcfg
+
+# Xilinx Vivado
+.Xil/
+.cache/
+fsm_encoding.os
+tab_*/
+webtalk.*
+vivado_pid*.str
+hs_err_pid*
+xelab.*
+xsim.*
+xvlog.*
+*.cache
+*.sim
+*.runs
+*.hw
+*.ip_user_files
+*.backup.*
+*.debug
+*.xpr
+*.txt
+
+# Checkpoint files
+*.dcp
+
+# Memory initialization files
+*.mem
+*.dat
