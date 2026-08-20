@@ -11,7 +11,7 @@ create_project $project_name $build_dir -force
 
 # Add design sources
 set src_dir "$project_root/src"
-add_files [glob "$src_dir/*.sv"]
+add_files [glob "$src_dir/*/*.sv"]
 
 # Add memory initialization files
 set mem_dir "$project_root/mem"

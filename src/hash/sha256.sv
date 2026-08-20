@@ -2,8 +2,7 @@ module sha256 #(
     parameter OUTPUT_LENGTH = 8,
     parameter MAX_MESSAGE_LENGTH = 55,
     parameter K_NUMBER = 64,
-    parameter H_NUMBER = 8,
-    parameter SYMBOL_WIDTH = 8
+    parameter H_NUMBER = 8
 ) (
     // Clock / Reset
     input  logic clk,
