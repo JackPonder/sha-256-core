@@ -38,6 +38,23 @@ module sha256 #(
     output logic                             dom_we
 );
 
+logic [511:0] block;
 
+padding #(
+    .MAX_MESSAGE_LENGTH(MAX_MESSAGE_LENGTH)
+) padding (
+    .clk(clk),
+    .rst(rst),
+
+    .go(go),
+    .done(),
+
+    .msg_length(msg_length),
+    .msg_addr(msg_addr),
+    .msg_data(msg_data),
+    .msg_en(msg_en),
+    .msg_we(msg_we),
+    .block(block)
+);
 
 endmodule
