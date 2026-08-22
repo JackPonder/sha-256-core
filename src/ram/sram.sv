@@ -24,8 +24,9 @@ module sram #(
 // Memory array
 logic [DATA_WIDTH-1:0] mem [1 << ADDR_WIDTH];
 
-// Port A read/write
+// Synchronous read/write
 always_ff @(posedge clk) begin
+    // Port A
     if (ena) begin
         if (wea) begin
             mem[addra] <= dina;
@@ -33,10 +34,8 @@ always_ff @(posedge clk) begin
             douta <= mem[addra];
         end
     end
-end
 
-// Port B read/write
-always_ff @(posedge clk) begin
+    // Port B
     if (enb) begin
         if (web) begin
             mem[addrb] <= dinb;
