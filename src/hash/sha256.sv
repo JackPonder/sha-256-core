@@ -1,6 +1,5 @@
 module sha256 #(
-    parameter MAX_MESSAGE_LENGTH = 55,
-    parameter OUTPUT_LENGTH = 8
+    parameter MAX_MESSAGE_LENGTH = 55
 ) (
     // Clock / Reset
     input  logic clk,
@@ -17,11 +16,8 @@ module sha256 #(
     output logic                                  msg_en,
     output logic                                  msg_we,
 
-    // Output data memory
-    output logic [$clog2(OUTPUT_LENGTH)-1:0] dom_addr,
-    output logic [31:0]                      dom_data,
-    output logic                             dom_en,
-    output logic                             dom_we
+    // Computed hash
+    output logic [255:0] hash
 );
 
 //------------------------------------------------------------------------------
@@ -158,7 +154,9 @@ compression compression (
     .wmem_addr(wmem_addrb),
     .wmem_data(wmem_dinb),
     .wmem_en(wmem_enb),
-    .wmem_we(wmem_web)
+    .wmem_we(wmem_web),
+
+    .hash(hash)
 );
 
 endmodule
