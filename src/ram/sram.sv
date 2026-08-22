@@ -11,9 +11,8 @@ module sram #(
     output logic [DATA_WIDTH-1:0] read_data
 );
 
-// Associative memory
-localparam DATA_DEPTH = 2 ** ADDR_WIDTH;
-logic [DATA_WIDTH-1:0] mem[DATA_DEPTH] = '{default: 'X};
+// Memory array
+logic [DATA_WIDTH-1:0] mem [1 << ADDR_WIDTH];
 
 // Synchronous read/write
 always_ff @(posedge clk) begin
