@@ -53,7 +53,3 @@ xvlog.*
 
 # Checkpoint files
 *.dcp
-
-# Memory initialization files
-*.mem
-*.dat
