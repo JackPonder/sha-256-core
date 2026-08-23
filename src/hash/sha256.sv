@@ -24,29 +24,22 @@ module sha256 #(
 // RAMs
 //------------------------------------------------------------------------------
 
-logic [5:0] wmem_addra, wmem_addrb;
-logic [31:0] wmem_douta;
-logic [31:0] wmem_dina, wmem_dinb;
-logic wmem_ena, wmem_enb;
-logic wmem_wea, wmem_web;
+logic [5:0] wmem_addr;
+logic [31:0] wmem_dout;
+logic [31:0] wmem_din;
+logic wmem_en;
+logic wmem_we;
 
 sram #(
     .ADDR_WIDTH(6),
     .DATA_WIDTH(32)
 ) w_mem (
     .clk(clk),
-
-    .addra(wmem_addra),
-    .dina(wmem_dina),
-    .douta(wmem_douta),
-    .ena(wmem_ena),
-    .wea(wmem_wea),
-
-    .addrb(wmem_addrb),
-    .dinb(32'b0),
-    .doutb(wmem_dinb),
-    .enb(wmem_enb),
-    .web(wmem_web)
+    .addra(wmem_addr),
+    .dina(wmem_din),
+    .douta(wmem_dout),
+    .ena(wmem_en),
+    .wea(wmem_we)
 );
 
 logic [2:0] hmem_addr;
@@ -86,7 +79,7 @@ sram #(
 );
 
 //------------------------------------------------------------------------------
-// Step 1: Padding
+// Padding
 //------------------------------------------------------------------------------
 
 logic padding_done;
@@ -110,36 +103,21 @@ padding #(
 );
 
 //------------------------------------------------------------------------------
-// Step 2: Message Scheduling
-//------------------------------------------------------------------------------
-
-logic decomp_done;
-
-decomp decomp (
-    .clk(clk),
-    .rst(rst),
-
-    .go(padding_done),
-    .done(decomp_done),
-
-    .m_block(m_block),
-    .wmem_addr(wmem_addra),
-    .wmem_rdata(wmem_douta),
-    .wmem_wdata(wmem_dina),
-    .wmem_en(wmem_ena),
-    .wmem_we(wmem_wea)
-);
-
-//------------------------------------------------------------------------------
-// Step 3: Compression Loop
+// Message Scheduling & Compression Loop
 //------------------------------------------------------------------------------
 
 compression compression (
     .clk(clk),
     .rst(rst),
 
-    .go(decomp_done),
-    .done(done),
+    .go(padding_done),
+    .msg_chunk(m_block),
+
+    .wmem_addr(wmem_addr),
+    .wmem_din(wmem_din),
+    .wmem_dout(wmem_dout),
+    .wmem_en(wmem_en),
+    .wmem_we(wmem_we),
 
     .hmem_addr(hmem_addr),
     .hmem_data(hmem_data),
@@ -151,12 +129,8 @@ compression compression (
     .kmem_en(kmem_en),
     .kmem_we(kmem_we),
 
-    .wmem_addr(wmem_addrb),
-    .wmem_data(wmem_dinb),
-    .wmem_en(wmem_enb),
-    .wmem_we(wmem_web),
-
-    .hash(hash)
+    .hash(hash),
+    .done(done)
 );
 
 endmodule

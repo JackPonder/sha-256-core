@@ -7,6 +7,13 @@ module compression (
     input  logic go,
     output logic done,
 
+    // W memory interface
+    output logic [5:0]  wmem_addr,
+    output logic [31:0] wmem_din,
+    input  logic [31:0] wmem_dout,
+    output logic        wmem_en,
+    output logic        wmem_we,
+
     // H memory interface
     output logic [2:0]  hmem_addr,
     input  logic [31:0] hmem_data,
@@ -19,11 +26,8 @@ module compression (
     output logic        kmem_en,
     output logic        kmem_we,
 
-    // W memory interface
-    output logic [5:0]  wmem_addr,
-    input  logic [31:0] wmem_data,
-    output logic        wmem_en,
-    output logic        wmem_we,
+    // Message chunk
+    input  logic [511:0] msg_chunk,
 
     // Computed hash
     output logic [255:0] hash
@@ -36,6 +40,7 @@ module compression (
 // State encodings
 typedef enum logic [2:0] {
     StIdle,
+    StWord,
     StInit,
     StLoop,
     StHash,
@@ -65,7 +70,8 @@ end
 always_comb begin
     // State transitions
     case (state_q)
-        StIdle:  state_d = (go) ? StInit : StIdle;
+        StIdle:  state_d = (go) ? StWord : StIdle;
+        StWord:  state_d = (count_q == 63) ? StInit : StWord;
         StInit:  state_d = (count_q == 7) ? StLoop : StInit;
         StLoop:  state_d = (count_q == 63) ? StHash : StLoop;
         StHash:  state_d = (count_q == 7) ? StDone : StHash;
@@ -76,6 +82,7 @@ always_comb begin
     // Counter to track loop index
     case (state_q)
         StIdle:  count_d = '0;
+        StWord:  count_d = (count_q + 1'b1);
         StInit:  count_d = (count_q + 1'b1) % 8;
         StLoop:  count_d = (count_q + 1'b1);
         StHash:  count_d = (count_q + 1'b1) % 8;
@@ -88,15 +95,91 @@ end
 // Datapath
 //------------------------------------------------------------------------------
 
+// Message scheduling
+logic [31:0] w2, w7, w15, w16;
+logic [31:0] s0l, s1l;
+
+delay #(
+    .WIDTH(32),
+    .DEPTH(2)
+) delay2 (
+    .clk(clk),
+    .din(wmem_din),
+    .dout(w2)
+);
+
+delay #(
+    .WIDTH(32),
+    .DEPTH(7)
+) delay7 (
+    .clk(clk),
+    .din(wmem_din),
+    .dout(w7)
+);
+
+delay #(
+    .WIDTH(32),
+    .DEPTH(15)
+) delay15 (
+    .clk(clk),
+    .din(wmem_din),
+    .dout(w15)
+);
+
+delay #(
+    .WIDTH(32),
+    .DEPTH(16)
+) delay16 (
+    .clk(clk),
+    .din(wmem_din),
+    .dout(w16)
+);
+
+lower_sigma lower_sigma (
+    .w0(w15),
+    .w1(w2),
+    .s0(s0l),
+    .s1(s1l)
+);
+
+always_comb begin
+    // Values 0-15 are copied from M block
+    if (count_q < 16) begin
+        unique case (count_q[3:0])
+            4'd0:  wmem_din = msg_chunk[480+:32];
+            4'd1:  wmem_din = msg_chunk[448+:32];
+            4'd2:  wmem_din = msg_chunk[416+:32];
+            4'd3:  wmem_din = msg_chunk[384+:32];
+            4'd4:  wmem_din = msg_chunk[352+:32];
+            4'd5:  wmem_din = msg_chunk[320+:32];
+            4'd6:  wmem_din = msg_chunk[288+:32];
+            4'd7:  wmem_din = msg_chunk[256+:32];
+            4'd8:  wmem_din = msg_chunk[224+:32];
+            4'd9:  wmem_din = msg_chunk[192+:32];
+            4'd10: wmem_din = msg_chunk[160+:32];
+            4'd11: wmem_din = msg_chunk[128+:32];
+            4'd12: wmem_din = msg_chunk[96+:32];
+            4'd13: wmem_din = msg_chunk[64+:32];
+            4'd14: wmem_din = msg_chunk[32+:32];
+            4'd15: wmem_din = msg_chunk[0+:32];
+        endcase
+    end
+
+    // Values 16-63 are computed using previous values
+    else begin
+        wmem_din = w16 + s0l + w7 + s1l;
+    end
+end
+
 // Working variables
 logic [31:0] a, b, c, d, e, f, g, h;
-logic [31:0] s0, s1, t1, t2, ch, maj;
+logic [31:0] s0u, s1u, t1, t2, ch, maj;
 
-upper_sigma sigma (
+upper_sigma upper_sigma (
     .x0(a),
     .x1(e),
-    .s0(s0),
-    .s1(s1)
+    .s0(s0u),
+    .s1(s1u)
 );
 
 choice choice (
@@ -113,10 +196,10 @@ majority majority (
     .maj(maj)
 );
 
-assign t1 = h + s1 + ch + kmem_data + wmem_data;
-assign t2 = s0 + maj;
+assign t1 = h + s1u + ch + kmem_data + wmem_dout;
+assign t2 = s0u + maj;
 
-// Initialization and compression loop
+// Variable initialization and compression loop
 always_ff @(posedge clk) begin
     if (state_q2 == StInit) begin
         unique case (count_q2[2:0])
@@ -141,6 +224,11 @@ always_ff @(posedge clk) begin
     end
 end
 
+// W memory
+assign wmem_addr = count_q;
+assign wmem_en = (state_q == StWord) || (state_q == StLoop);
+assign wmem_we = (state_q == StWord);
+
 // H memory
 assign hmem_addr = count_q[2:0];
 assign hmem_en = (state_q == StInit) || (state_q == StHash);
@@ -150,11 +238,6 @@ assign hmem_we = 1'b0;
 assign kmem_addr = count_q;
 assign kmem_en = (state_q == StLoop);
 assign kmem_we = 1'b0;
-
-// W memory
-assign wmem_addr = count_q;
-assign wmem_en = (state_q == StLoop);
-assign wmem_we = 1'b0;
 
 // Final hash computation
 always_ff @(posedge clk) begin
