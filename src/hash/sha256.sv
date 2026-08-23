@@ -79,58 +79,65 @@ sram #(
 );
 
 //------------------------------------------------------------------------------
-// Padding
+// Control
 //------------------------------------------------------------------------------
 
-logic padding_done;
-logic [511:0] m_block;
+logic [5:0] read_idx, write_idx;
+logic pad, init, loop, comp;
 
-padding #(
-    .MAX_MESSAGE_LENGTH(MAX_MESSAGE_LENGTH)
-) padding (
+control control (
     .clk(clk),
     .rst(rst),
 
     .go(go),
-    .done(padding_done),
+    .done(done),
 
-    .msg_length(msg_length),
+    .read_idx(read_idx),
+    .write_idx(write_idx),
+    .pad(pad),
+    .init(init),
+    .loop(loop),
+    .comp(comp),
+
     .msg_addr(msg_addr),
-    .msg_data(msg_data),
     .msg_en(msg_en),
     .msg_we(msg_we),
-    .block(m_block)
-);
-
-//------------------------------------------------------------------------------
-// Message Scheduling & Compression Loop
-//------------------------------------------------------------------------------
-
-compression compression (
-    .clk(clk),
-    .rst(rst),
-
-    .go(padding_done),
-    .msg_chunk(m_block),
 
     .wmem_addr(wmem_addr),
-    .wmem_din(wmem_din),
-    .wmem_dout(wmem_dout),
     .wmem_en(wmem_en),
     .wmem_we(wmem_we),
 
     .hmem_addr(hmem_addr),
-    .hmem_data(hmem_data),
     .hmem_en(hmem_en),
     .hmem_we(hmem_we),
 
     .kmem_addr(kmem_addr),
-    .kmem_data(kmem_data),
     .kmem_en(kmem_en),
-    .kmem_we(kmem_we),
+    .kmem_we(kmem_we)
+);
 
-    .hash(hash),
-    .done(done)
+//------------------------------------------------------------------------------
+// Datapath
+//------------------------------------------------------------------------------
+
+datapath datapath (
+    .clk(clk),
+
+    .msg_length(msg_length),
+    .read_idx(read_idx),
+    .write_idx(write_idx),
+    .pad(pad),
+    .init(init),
+    .loop(loop),
+    .comp(comp),
+
+    .msg_data(msg_data),
+    .wmem_din(wmem_din),
+    .wmem_dout(wmem_dout),
+    .hmem_data(hmem_data),
+    .kmem_data(kmem_data),
+
+    .hash(hash)
 );
 
 endmodule
