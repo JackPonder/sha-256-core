@@ -18,5 +18,5 @@ set mem_dir "$project_root/mem"
 add_files [glob "$mem_dir/*.mem"]
 
 # Add simulation sources
-set sim_dir "$project_root/sim"
+set sim_dir "$project_root/tests"
 add_files -fileset sim_1 [glob "$sim_dir/*.sv"]
