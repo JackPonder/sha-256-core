@@ -59,10 +59,11 @@ always_comb begin
     count_d = count_q;
 
     // State transitions
-    unique case (state_q)
-        StIdle: if (go) state_d = StRead; 
-        StRead: if (count_q == 63) state_d = StDone;
-        StDone: state_d = StIdle;
+    case (state_q)
+        StIdle:  state_d = go ? StRead : StIdle; 
+        StRead:  state_d = (count_q == 63) ? StDone : StRead;
+        StDone:  state_d = StIdle;
+        default: state_d = StIdle;
     endcase
 
     // Increment counter only when in read state
