@@ -1,23 +1,18 @@
-module sha256 #(
-    parameter MAX_MESSAGE_LENGTH = 55
-) (
+module sha256 (
     // Clock / Reset
     input  logic clk,
     input  logic rst,
 
-    // Control
-    input  logic [$clog2(MAX_MESSAGE_LENGTH):0] msg_length,
-    input  logic                                go,
-    output logic                                done,
+    // Input bus
+    input  logic [7:0] text_data,
+    input  logic       text_last,
+    input  logic       text_valid,
+    output logic       text_ready,
 
-    // Message memory interface
-    output logic [$clog2(MAX_MESSAGE_LENGTH)-1:0] msg_addr,
-    input  logic [7:0]                            msg_data,
-    output logic                                  msg_en,
-    output logic                                  msg_we,
-
-    // Computed hash
-    output logic [255:0] hash
+    // Output bus
+    output logic [255:0] hash_data,
+    output logic         hash_valid,
+    input  logic         hash_ready
 );
 
 //------------------------------------------------------------------------------
@@ -79,65 +74,57 @@ sram #(
 );
 
 //------------------------------------------------------------------------------
-// Control
+// Pre-Processing
 //------------------------------------------------------------------------------
 
-logic [5:0] read_idx, write_idx;
-logic pad, init, loop, comp;
+logic [511:0] chunk_data;
+logic chunk_valid, chunk_ready;
 
-control control (
+padding padding (
     .clk(clk),
     .rst(rst),
 
-    .go(go),
-    .done(done),
+    .text_data(text_data),
+    .text_last(text_last),
+    .text_valid(text_valid),
+    .text_ready(text_ready),
 
-    .read_idx(read_idx),
-    .write_idx(write_idx),
-    .pad(pad),
-    .init(init),
-    .loop(loop),
-    .comp(comp),
+    .chunk_data(chunk_data),
+    .chunk_valid(chunk_valid),
+    .chunk_ready(chunk_ready)
+);
 
-    .msg_addr(msg_addr),
-    .msg_en(msg_en),
-    .msg_we(msg_we),
+//------------------------------------------------------------------------------
+// Processing
+//------------------------------------------------------------------------------
+
+processing processing (
+    .clk(clk),
+    .rst(rst),
+
+    .chunk_data(chunk_data),
+    .chunk_valid(chunk_valid),
+    .chunk_ready(chunk_ready),
 
     .wmem_addr(wmem_addr),
+    .wmem_din(wmem_din),
+    .wmem_dout(wmem_dout),
     .wmem_en(wmem_en),
     .wmem_we(wmem_we),
 
     .hmem_addr(hmem_addr),
+    .hmem_data(hmem_data),
     .hmem_en(hmem_en),
     .hmem_we(hmem_we),
 
     .kmem_addr(kmem_addr),
-    .kmem_en(kmem_en),
-    .kmem_we(kmem_we)
-);
-
-//------------------------------------------------------------------------------
-// Datapath
-//------------------------------------------------------------------------------
-
-datapath datapath (
-    .clk(clk),
-
-    .msg_length(msg_length),
-    .read_idx(read_idx),
-    .write_idx(write_idx),
-    .pad(pad),
-    .init(init),
-    .loop(loop),
-    .comp(comp),
-
-    .msg_data(msg_data),
-    .wmem_din(wmem_din),
-    .wmem_dout(wmem_dout),
-    .hmem_data(hmem_data),
     .kmem_data(kmem_data),
-
-    .hash(hash)
+    .kmem_en(kmem_en),
+    .kmem_we(kmem_we),
+    
+    .hash_data(hash_data),
+    .hash_valid(hash_valid),
+    .hash_ready(hash_ready)
 );
 
 endmodule

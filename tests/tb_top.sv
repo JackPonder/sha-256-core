@@ -1,5 +1,4 @@
 `timescale 1ns/1ps
-`define MSG_LENGTH 5
 
 module tb_top();
 
@@ -9,23 +8,26 @@ module tb_top();
 
 // Settings
 localparam CLK_PHASE = 5;
-localparam MAX_MESSAGE_LENGTH = 55;
+localparam TEXT_LENGTH = 5;
+
+// Test vector
+logic [7:0] vector [TEXT_LENGTH];
+initial $readmemh("message.mem", vector);
 
 // Clock / Reset
 logic clk;
 logic rst;
 
-// Inputs / Outputs
-logic                                xxx__dut__go;
-logic [$clog2(MAX_MESSAGE_LENGTH):0] xxx__dut__msg_length;
-logic [255:0]                        dut__xxx__hash;
-logic                                dut__xxx__done;
+// Input bus
+logic [7:0] text_data;
+logic       text_last;
+logic       text_valid;
+logic       text_ready;
 
-// Message memory
-logic [$clog2(MAX_MESSAGE_LENGTH)-1:0] dut__msg__address;
-logic                                  dut__msg__enable;
-logic                                  dut__msg__write;
-logic [7:0]                            msg__dut__data;
+// Output bus
+logic [255:0] hash_data;
+logic         hash_valid;
+logic         hash_ready = 1'b1;
 
 //------------------------------------------------------------------------------
 // Testbench
@@ -33,92 +35,65 @@ logic [7:0]                            msg__dut__data;
 
 // Clock generation
 initial begin
-    clk = 1'b0;
+    clk = 1'b1;
     forever #CLK_PHASE clk = ~clk;
 end
 
-integer num_cycles;
-bit running;
-
+// Reset sequence
 initial begin
-    running = 0;
-
-    repeat(10) @(posedge clk);
     rst = 0;
-    xxx__dut__go = 0;
-    xxx__dut__msg_length = `MSG_LENGTH;
+    text_data = vector[0];
+    text_last = 1'b0;
+    text_valid = 1'b0;
 
     repeat(10) @(posedge clk);
-    rst = 1;
+    rst <= 1;
+
     repeat(10) @(posedge clk);
-    rst = 0;
+    rst <= 0;
 
-    repeat(1) @(posedge clk);
-    xxx__dut__go = 1;
-    repeat(1) @(posedge clk);
-    xxx__dut__go = 0;
-end
+    repeat(10) @(posedge clk);
+    text_valid <= 1'b1;
 
-always begin
-    @(posedge clk);
-    if((xxx__dut__go == 1'b1) && !running) begin
-        $display("t=%0t, go asserted", $time);
-        num_cycles = 0;
-        running = 1;
-    end else if((dut__xxx__done == 1'b1) && running) begin
-        $display("t=%0t, done asserted after %0d clock cycles", $time, num_cycles);
-        running = 0;
-    end else begin
-        num_cycles++;
+    for (int i = 1; i < TEXT_LENGTH;) begin
+        @(posedge clk);
+        if (text_valid && text_ready) begin
+            text_data <= vector[i];
+            text_last <= (i == TEXT_LENGTH - 1);
+            i++;
+        end
     end
+
+    @(posedge clk);
+    text_valid <= 1'b0;
+    text_last <= 1'b0;
 end
 
 always begin
     @(posedge clk);
-    if(dut__xxx__done == 1'b1) begin
+    if (hash_valid) begin
         $display("Computed hash:");
-        $display("%h", dut__xxx__hash);
+        $display("%h", hash_data);
     end
-    wait(dut__xxx__done == 1'b0);
+    wait(!hash_valid);
 end
-
-//------------------------------------------------------------------------------
-// RAMs
-//------------------------------------------------------------------------------
-
-sram #(
-    .ADDR_WIDTH($clog2(MAX_MESSAGE_LENGTH)),
-    .DATA_WIDTH(8),
-    .MEM_INIT_FILE("message.mem")
-) msg_mem (
-    .addra(dut__msg__address),
-    .dina(8'b0),
-    .douta(msg__dut__data),
-    .ena(dut__msg__enable),
-    .wea(dut__msg__write),
-    .clk(clk)
-);
 
 //------------------------------------------------------------------------------
 // DUT
 //------------------------------------------------------------------------------
 
-sha256 #(
-    .MAX_MESSAGE_LENGTH(MAX_MESSAGE_LENGTH)
-) dut (
+sha256 sha256 (
     .clk(clk),
     .rst(rst),
 
-    .go(xxx__dut__go),
-    .msg_length(xxx__dut__msg_length),
+    .text_data(text_data),
+    .text_last(text_last),
+    .text_valid(text_valid),
+    .text_ready(text_ready),
 
-    .msg_addr(dut__msg__address),
-    .msg_en(dut__msg__enable),
-    .msg_we(dut__msg__write),
-    .msg_data(msg__dut__data),
-
-    .hash(dut__xxx__hash),
-    .done(dut__xxx__done)
+    .hash_data(hash_data),
+    .hash_valid(hash_valid),
+    .hash_ready(hash_ready)
 );
 
 endmodule
