@@ -1,0 +1,58 @@
+module top (
+    // Clock / Reset
+    input  logic clk,
+    input  logic rst,
+
+    // UART
+    input  logic rx,
+    output logic tx
+);
+
+//------------------------------------------------------------------------------
+// UART Receiver
+//------------------------------------------------------------------------------
+
+logic [7:0] text_data;
+logic text_valid;
+
+uart_receiver uart_rx (
+    .clk(clk),
+    .rst(rst),
+    .rx(rx),
+    .data(text_data),
+    .valid(text_valid)
+);
+
+//------------------------------------------------------------------------------
+// SHA-256 Core
+//------------------------------------------------------------------------------
+
+logic [255:0] hash_data;
+logic hash_valid;
+
+sha256 sha256 (
+    .clk(clk),
+    .rst(rst),
+
+    .text_data(text_data),
+    .text_valid(text_valid),
+    .text_ready(),
+
+    .hash_data (hash_data),
+    .hash_valid(hash_valid),
+    .hash_ready(1'b1)
+);
+
+//------------------------------------------------------------------------------
+// UART Transmitter
+//------------------------------------------------------------------------------
+
+uart_transmitter uart_tx (
+    .clk(clk),
+    .rst(rst),
+    .tx(tx),
+    .data(hash_data[7:0]),
+    .load(hash_valid)
+);
+
+endmodule
