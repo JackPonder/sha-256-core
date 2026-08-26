@@ -20,7 +20,6 @@ logic rst;
 
 // Input bus
 logic [7:0] text_data;
-logic       text_last;
 logic       text_valid;
 logic       text_ready;
 
@@ -43,7 +42,6 @@ end
 initial begin
     rst = 0;
     text_data = vector[0];
-    text_last = 1'b0;
     text_valid = 1'b0;
 
     repeat(10) @(posedge clk);
@@ -58,15 +56,15 @@ initial begin
     for (int i = 1; i < TEXT_LENGTH;) begin
         @(posedge clk);
         if (text_valid && text_ready) begin
-            text_data <= vector[i];
-            text_last <= (i == TEXT_LENGTH - 1);
-            i++;
+            text_data <= vector[i++];
         end
     end
 
     @(posedge clk);
+    text_data <= 8'h00;
+
+    @(posedge clk);
     text_valid <= 1'b0;
-    text_last <= 1'b0;
 end
 
 always begin
@@ -87,7 +85,6 @@ sha256 sha256 (
     .rst(rst),
 
     .text_data(text_data),
-    .text_last(text_last),
     .text_valid(text_valid),
     .text_ready(text_ready),
 
