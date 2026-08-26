@@ -5,7 +5,6 @@ module sha256 (
 
     // Input bus
     input  logic [7:0] text_data,
-    input  logic       text_last,
     input  logic       text_valid,
     output logic       text_ready,
 
@@ -85,7 +84,6 @@ padding padding (
     .rst(rst),
 
     .text_data(text_data),
-    .text_last(text_last),
     .text_valid(text_valid),
     .text_ready(text_ready),
 

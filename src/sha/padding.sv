@@ -5,7 +5,6 @@ module padding (
 
     // Input bus
     input  logic [7:0] text_data,
-    input  logic       text_last,
     input  logic       text_valid,
     output logic       text_ready,
 
@@ -23,7 +22,6 @@ module padding (
 typedef enum logic [2:0] {
     StInit,
     StText,
-    StOne,
     StZero,
     StLength,
     StDone
@@ -45,12 +43,12 @@ always_ff @(posedge clk) begin
 end
 
 // Next state logic
+wire terminator = (text_data == 8'h0d) || (text_data == 8'h0a) || (text_data == 8'h00);
 always_comb begin
     // State transitions
     case (state_q)
         StInit:   state_d = StText;
-        StText:   state_d = (text_valid && text_last) ? StOne : StText;
-        StOne:    state_d = StZero;
+        StText:   state_d = (text_valid && terminator) ? StZero : StText;
         StZero:   state_d = (count_q == 55) ? StLength : StZero;
         StLength: state_d = (count_q == 63) ? StDone : StLength;
         StDone:   state_d = (chunk_ready) ? StInit : StDone;
@@ -61,7 +59,6 @@ always_comb begin
     case (state_q)
         StInit:   count_d = '0;
         StText:   count_d = text_valid ? (count_q + 1'b1) : count_q;
-        StOne:    count_d = count_q + 1'b1;
         StZero:   count_d = count_q + 1'b1;
         StLength: count_d = count_q + 1'b1;
         StDone:   count_d = '0;
@@ -75,8 +72,8 @@ assign chunk_valid = (state_q == StDone);
 
 // Output logic
 wire init = (state_q == StInit);
-wire shift_text = (state_q == StText) && text_valid;
-wire shift_one = (state_q == StOne);
+wire shift_text = (state_q == StText) && text_valid && !terminator;
+wire shift_one = (state_q == StText) && text_valid && terminator;
 wire shift_zero = (state_q == StZero);
 wire shift_length = (state_q == StLength);
 
