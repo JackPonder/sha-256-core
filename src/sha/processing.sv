@@ -48,21 +48,25 @@ typedef enum logic [2:0] {
 } state_t;
 
 // State registers
-state_t state_d, state_q, state_q2;
-logic [5:0] count_d, count_q, count_q2;
+state_t state_d, state_q, state_q2, state_q3;
+logic [5:0] count_d, count_q, count_q2, count_q3;
 
 // State transition logic
 always_ff @(posedge clk) begin
     if (rst) begin
         state_q  <= StIdle;
         state_q2 <= StIdle;
+        state_q3 <= StIdle;
         count_q  <= '0;
         count_q2 <= '0;
+        count_q3 <= '0;
     end else begin
         state_q  <= state_d;
         state_q2 <= state_q;
+        state_q3 <= state_q2;
         count_q  <= count_d;
         count_q2 <= count_q;
+        count_q3 <= count_q2;
     end
 end
 
@@ -75,7 +79,7 @@ always_comb begin
         StInit:     state_d = (count_q == 7) ? StCompress : StInit;
         StCompress: state_d = (count_q == 63) ? StUpdate : StCompress;
         StUpdate:   state_d = (count_q == 7) ? StDone : StUpdate;
-        StDone:     state_d = (hash_ready) ? StIdle : StDone;
+        StDone:     state_d = (hash_valid && hash_ready) ? StIdle : StDone;
         default:    state_d = StIdle;
     endcase
 
@@ -93,7 +97,7 @@ end
 
 // Handshake signals
 assign chunk_ready = (state_q == StIdle);
-assign hash_valid = (state_q2 == StDone);
+assign hash_valid = (state_q3 == StDone);
 
 // W memory
 assign wmem_addr = count_q;
@@ -227,8 +231,8 @@ assign t2 = s0u + maj;
 
 // Variable initialization and compression loop
 always_ff @(posedge clk) begin
-    if (state_q2 == StInit) begin
-        unique case (count_q2[2:0])
+    if (state_q3 == StInit) begin
+        unique case (count_q3[2:0])
             3'd0: a <= hmem_data;
             3'd1: b <= hmem_data;
             3'd2: c <= hmem_data;
@@ -238,7 +242,7 @@ always_ff @(posedge clk) begin
             3'd6: g <= hmem_data;
             3'd7: h <= hmem_data; 
         endcase
-    end else if (state_q2 == StCompress) begin
+    end else if (state_q3 == StCompress) begin
         h <= g;
         g <= f;
         f <= e;
@@ -252,8 +256,8 @@ end
 
 // Final hash computation
 always_ff @(posedge clk) begin
-    if (state_q2 == StUpdate) begin
-        unique case (count_q2[2:0])
+    if (state_q3 == StUpdate) begin
+        unique case (count_q3[2:0])
             3'd0: hash_data <= {hash_data[223:0], hmem_data + a};
             3'd1: hash_data <= {hash_data[223:0], hmem_data + b};
             3'd2: hash_data <= {hash_data[223:0], hmem_data + c};

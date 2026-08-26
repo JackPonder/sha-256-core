@@ -13,6 +13,7 @@ module sram #(
 
 // Memory array
 logic [DATA_WIDTH-1:0] mem [1 << ADDR_WIDTH];
+logic [DATA_WIDTH-1:0] drega;
 
 // Synchronous read/write
 always_ff @(posedge clk) begin
@@ -20,9 +21,14 @@ always_ff @(posedge clk) begin
         if (wea) begin
             mem[addra] <= dina;
         end else begin
-            douta <= mem[addra];
+            drega <= mem[addra];
         end
     end
+end
+
+// Additional output register to improve timing
+always_ff @(posedge clk) begin
+    douta <= drega;
 end
 
 // Memory initialization
