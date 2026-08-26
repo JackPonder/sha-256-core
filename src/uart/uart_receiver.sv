@@ -2,6 +2,7 @@ module uart_receiver (
     // Clock / Reset
     input  logic clk,
     input  logic rst,
+    input  logic en,
 
     // Receiver
     input  logic rx,
@@ -12,7 +13,7 @@ module uart_receiver (
 );
 
 // State encodings
-typedef enum logic [2:0] { 
+typedef enum logic [1:0] { 
     StIdle,
     StStart,
     StData,
@@ -28,7 +29,7 @@ always_ff @(posedge clk) begin
     if (rst) begin
         state_q <= StIdle;
         count_q <= '0;
-    end else begin
+    end else if (en) begin
         state_q <= state_d;
         count_q <= count_d;
     end
@@ -55,11 +56,16 @@ end
 
 // Data shift register
 always_ff @(posedge clk) begin
-    if (state_q == StData && count_q[3:0] == 4'd8)
+    if (en && state_q == StData && count_q[3:0] == 4'd7)
         data <= {rx, data[7:1]};
 end
 
 // Assert valid for one cycle after last bit is read
-assign valid = (state_q == StStop) && (count_q == '0);
+always_ff @(posedge clk) begin
+    if (en && state_q == StStop && count_q == '0)
+        valid <= 1'b1;
+    else
+        valid <= 1'b0;
+end
     
 endmodule

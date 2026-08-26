@@ -7,10 +7,10 @@ module tb_uart();
 //------------------------------------------------------------------------------
 
 // Settings
-localparam CLK_FREQ = 100e6;
-localparam CLK_PERIOD = 1e9 / CLK_FREQ;
-localparam BAUD_RATE = 6.25e6;
-localparam CYCLES_PER_BIT = CLK_FREQ / BAUD_RATE;
+localparam int CLK_FREQ = 100e6;
+localparam int CLK_PERIOD = 1e9 / CLK_FREQ;
+localparam int BAUD_RATE = 6.25e6;
+localparam int CYCLES_PER_BIT = CLK_FREQ / BAUD_RATE;
 
 // Clock / Reset
 logic clk;
@@ -30,6 +30,7 @@ logic valid;
 uart_receiver dut (
     .clk(clk),
     .rst(rst),
+    .en(1'b1),
     .rx(rx),
     .data(data),
     .valid(valid)

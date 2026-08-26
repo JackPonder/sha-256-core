@@ -5,12 +5,25 @@ module top (
 
     // UART
     input  logic rx,
-    output logic tx
+    output logic tx,
+
+    // LEDs
+    output logic [7:0] led
 );
 
 //------------------------------------------------------------------------------
 // UART Receiver
 //------------------------------------------------------------------------------
+
+logic en_rx;
+
+en_gen #(
+    .DIVISOR(54)
+) en_gen_rx (
+    .clk(clk),
+    .rst(rst),
+    .en(en_rx)
+);
 
 logic [7:0] text_data;
 logic text_valid;
@@ -18,10 +31,16 @@ logic text_valid;
 uart_receiver uart_rx (
     .clk(clk),
     .rst(rst),
+    .en(en_rx),
     .rx(rx),
     .data(text_data),
     .valid(text_valid)
 );
+
+always_ff @(posedge clk) begin
+    if (text_valid)
+        led <= text_data;
+end
 
 //------------------------------------------------------------------------------
 // SHA-256 Core
@@ -47,9 +66,20 @@ sha256 sha256 (
 // UART Transmitter
 //------------------------------------------------------------------------------
 
+logic en_tx;
+
+en_gen #(
+    .DIVISOR(868)
+) en_gen_tx (
+    .clk(clk),
+    .rst(rst),
+    .en(en_tx)
+);
+
 uart_transmitter uart_tx (
     .clk(clk),
     .rst(rst),
+    .en(en_tx),
     .tx(tx),
     .data(hash_data[7:0]),
     .load(hash_valid)

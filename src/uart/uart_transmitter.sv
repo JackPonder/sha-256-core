@@ -2,6 +2,7 @@ module uart_transmitter (
     // Clock / Reset
     input  logic clk,
     input  logic rst,
+    input  logic en,
 
     // Transmitter
     output logic tx,
@@ -12,7 +13,7 @@ module uart_transmitter (
 );
 
 // State encodings
-typedef enum logic [2:0] { 
+typedef enum logic [1:0] { 
     StIdle,
     StStart,
     StData,
@@ -21,14 +22,14 @@ typedef enum logic [2:0] {
 
 // State registers
 state_t state_d, state_q;
-logic [6:0] count_d, count_q;
+logic [2:0] count_d, count_q;
 
 // State transition logic
 always_ff @(posedge clk) begin
     if (rst) begin
         state_q <= StIdle;
         count_q <= '0;
-    end else begin
+    end else if (en) begin
         state_q <= state_d;
         count_q <= count_d;
     end
@@ -38,19 +39,13 @@ end
 always_comb begin
     case (state_q)
         StIdle:  state_d = load ? StStart : StIdle;
-        StStart: state_d = (count_q == {3'd0, 4'd15}) ? StData : StStart;
-        StData:  state_d = (count_q == {3'd7, 4'd15}) ? StStop : StData;
-        StStop:  state_d = (count_q == {3'd0, 4'd15}) ? StIdle : StStop;
+        StStart: state_d = StData;
+        StData:  state_d = (count_q == 3'd7) ? StStop : StData;
+        StStop:  state_d = StIdle;
         default: state_d = StIdle;
     endcase
 
-    case (state_q)
-        StIdle:  count_d = '0;
-        StStart: count_d = (count_q + 1'b1) % 16;
-        StData:  count_d = (count_q + 1'b1);
-        StStop:  count_d = (count_q + 1'b1) % 16;
-        default: count_d = '0;
-    endcase
+    count_d = (state_q == StData) ? (count_q + 1'b1) : '0;
 end
 
 // Packet shift register
@@ -58,7 +53,7 @@ logic [9:0] packet;
 always_ff @(posedge clk) begin
     if (load)
         packet <= {1'b1, data, 1'b0};
-    else if (state_q != StIdle && count_q[3:0] == 4'd15)
+    else if (state_q != StIdle)
         packet <= {1'b1, packet[9:1]};
 end
 
