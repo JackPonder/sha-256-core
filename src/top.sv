@@ -5,10 +5,7 @@ module top (
 
     // UART
     input  logic rx,
-    output logic tx,
-
-    // LEDs
-    output logic [7:0] led
+    output logic tx
 );
 
 //------------------------------------------------------------------------------
@@ -37,17 +34,12 @@ uart_receiver uart_rx (
     .valid(text_valid)
 );
 
-always_ff @(posedge clk) begin
-    if (text_valid)
-        led <= text_data;
-end
-
 //------------------------------------------------------------------------------
 // SHA-256 Core
 //------------------------------------------------------------------------------
 
-logic [255:0] hash_data;
-logic hash_valid;
+logic [255:0] digest_data;
+logic digest_valid, digest_ready;
 
 sha256 sha256 (
     .clk(clk),
@@ -57,9 +49,29 @@ sha256 sha256 (
     .text_valid(text_valid),
     .text_ready(),
 
-    .hash_data (hash_data),
-    .hash_valid(hash_valid),
-    .hash_ready(1'b1)
+    .hash_data(digest_data),
+    .hash_valid(digest_valid),
+    .hash_ready(digest_ready)
+);
+
+//------------------------------------------------------------------------------
+// Digest to Hex Converter
+//------------------------------------------------------------------------------
+
+logic [7:0] hex_data;
+logic hex_valid, hex_ready;
+
+digest_to_hex digest_to_hex (
+    .clk(clk),
+    .rst(rst),
+
+    .digest_data(digest_data),
+    .digest_valid(digest_valid),
+    .digest_ready(digest_ready),
+
+    .hex_data(hex_data),
+    .hex_valid(hex_valid),
+    .hex_ready(hex_ready)
 );
 
 //------------------------------------------------------------------------------
@@ -81,8 +93,9 @@ uart_transmitter uart_tx (
     .rst(rst),
     .en(en_tx),
     .tx(tx),
-    .data(hash_data[7:0]),
-    .load(hash_valid)
+    .data(hex_data),
+    .load(hex_valid),
+    .ready(hex_ready)
 );
 
 endmodule

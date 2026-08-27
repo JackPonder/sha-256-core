@@ -9,7 +9,8 @@ module uart_transmitter (
 
     // Data bus
     input  logic [7:0] data,
-    input  logic       load
+    input  logic       load,
+    output logic       ready
 );
 
 // State encodings
@@ -51,13 +52,18 @@ end
 // Packet shift register
 logic [9:0] packet;
 always_ff @(posedge clk) begin
-    if (load)
+    if (rst)
+        packet <= {10{1'b1}};
+    else if (en && ready && load)
         packet <= {1'b1, data, 1'b0};
-    else if (state_q != StIdle)
+    else if (en && !ready)
         packet <= {1'b1, packet[9:1]};
 end
 
 // Transmit packet out LSB first
 assign tx = packet[0];
+
+// Ready flag
+assign ready = en && (state_q == StIdle);
 
 endmodule
