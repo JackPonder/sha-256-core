@@ -14,45 +14,35 @@ module digest_to_hex (
     input  logic       hex_ready
 );
 
-// State encodings
-typedef enum logic { 
-    StIdle,
-    StShift
-} state_t;
-
 // State registers
-state_t state_d, state_q;
+logic shifting_d, shifting_q;
 logic [6:0] count_d, count_q;
 
 // State transition logic
 always_ff @(posedge clk) begin
     if (rst) begin
-        state_q <= StIdle;
+        shifting_q <= 1'b0;
         count_q <= '0;
     end else begin
-        state_q <= state_d;
+        shifting_q <= shifting_d;
         count_q <= count_d;
     end
 end
 
 // Next state logic
 always_comb begin
-    case (state_q)
-        StIdle:  state_d = (digest_valid) ? StShift : StIdle;
-        StShift: state_d = (hex_ready && count_q == 6'd63) ? StIdle : StShift;
-        default: state_d = StIdle;
-    endcase
-
-    case (state_q)
-        StIdle:  count_d = '0;
-        StShift: count_d = hex_ready ? count_q + 1'b1 : count_q;
-        default: count_d = '0;
-    endcase
+    if (!shifting_q) begin
+        shifting_d = digest_valid && digest_ready;
+        count_d = '0;
+    end else begin
+        shifting_d = !(hex_valid && hex_ready && count_q == 7'd65);
+        count_d = (hex_valid && hex_ready) ? count_q + 1'b1 : count_q;
+    end
 end
 
 // Handshake flags
-assign digest_ready = (state_q == StIdle);
-assign hex_valid = (state_q == StShift);
+assign digest_ready = !shifting_q;
+assign hex_valid = shifting_q;
 
 // Digest register
 logic [255:0] digest;
@@ -64,6 +54,14 @@ always_ff @(posedge clk) begin
 end
 
 // Output data
-assign hex_data = {4'h0, digest[255:252]} + (digest[255:252] < 10 ? 8'h30 : 8'h37);
+wire [3:0] hex_char = digest[255:252];
+wire [7:0] ascii_offset = (hex_char < 10) ? 8'h30 : 8'h57;
+always_comb begin
+    case (count_q)
+        7'd64:   hex_data = 8'h0d;
+        7'd65:   hex_data = 8'h0a; 
+        default: hex_data = 8'(hex_char) + ascii_offset;
+    endcase
+end
 
 endmodule
