@@ -1,8 +1,10 @@
-module uart_transmitter (
+module uart_transmitter #(
+    parameter CLK_FREQ = 100_000_000,
+    parameter BAUD_RATE = 115_200
+) (
     // Clock / Reset
     input  logic clk,
     input  logic rst,
-    input  logic en,
 
     // Transmitter
     output logic tx,
@@ -11,6 +13,17 @@ module uart_transmitter (
     input  logic [7:0] data,
     input  logic       load,
     output logic       ready
+);
+
+// Enable generator to lower clock speed to match baud rate
+logic en;
+
+en_gen #(
+    .DIVISOR(CLK_FREQ / BAUD_RATE)
+) en_gen (
+    .clk(clk),
+    .rst(rst),
+    .en(en)
 );
 
 // State encodings
@@ -54,10 +67,12 @@ logic [9:0] packet;
 always_ff @(posedge clk) begin
     if (rst)
         packet <= {10{1'b1}};
-    else if (en && ready && load)
-        packet <= {1'b1, data, 1'b0};
-    else if (en && !ready)
-        packet <= {1'b1, packet[9:1]};
+    else if (en) begin
+        if (ready && load)
+            packet <= {1'b1, data, 1'b0};
+        else if (!ready)
+            packet <= {1'b1, packet[9:1]};
+    end
 end
 
 // Transmit packet out LSB first

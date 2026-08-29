@@ -1,8 +1,10 @@
-module uart_receiver (
+module uart_receiver #(
+    parameter CLK_FREQ = 100_000_000,
+    parameter BAUD_RATE = 115_200
+) (
     // Clock / Reset
     input  logic clk,
     input  logic rst,
-    input  logic en,
 
     // Receiver
     input  logic rx,
@@ -10,6 +12,18 @@ module uart_receiver (
     // Data bus
     output logic [7:0] data,
     output logic       valid
+);
+
+// Enable generator to lower clock speed to match baud rate
+localparam SAMPLING_FREQ = BAUD_RATE * 16;
+logic en;
+
+en_gen #(
+    .DIVISOR(CLK_FREQ / SAMPLING_FREQ)
+) en_gen (
+    .clk(clk),
+    .rst(rst),
+    .en(en)
 );
 
 // State encodings
@@ -56,15 +70,19 @@ end
 
 // Data shift register
 always_ff @(posedge clk) begin
-    if (en && state_q == StData && count_q[3:0] == 4'd7)
-        data <= {rx, data[7:1]};
+    if (en)
+        if (state_q == StData && count_q[3:0] == 4'd7)
+            data <= {rx, data[7:1]};
 end
 
 // Assert valid for one cycle after last bit is read
 always_ff @(posedge clk) begin
-    if (en && state_q == StStop && count_q == '0)
-        valid <= 1'b1;
-    else
+    if (en) begin
+        if (state_q == StStop && count_q == '0)
+            valid <= 1'b1;
+        else
+            valid <= 1'b0;
+    end else
         valid <= 1'b0;
 end
     

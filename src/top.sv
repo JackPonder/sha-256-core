@@ -12,23 +12,12 @@ module top (
 // UART Receiver
 //------------------------------------------------------------------------------
 
-logic en_rx;
-
-en_gen #(
-    .DIVISOR(54)
-) en_gen_rx (
-    .clk(clk),
-    .rst(rst),
-    .en(en_rx)
-);
-
 logic [7:0] text_data;
 logic text_valid;
 
 uart_receiver uart_rx (
     .clk(clk),
     .rst(rst),
-    .en(en_rx),
     .rx(rx),
     .data(text_data),
     .valid(text_valid)
@@ -78,20 +67,9 @@ digest_to_hex digest_to_hex (
 // UART Transmitter
 //------------------------------------------------------------------------------
 
-logic en_tx;
-
-en_gen #(
-    .DIVISOR(868)
-) en_gen_tx (
-    .clk(clk),
-    .rst(rst),
-    .en(en_tx)
-);
-
 uart_transmitter uart_tx (
     .clk(clk),
     .rst(rst),
-    .en(en_tx),
     .tx(tx),
     .data(hex_data),
     .load(hex_valid),
