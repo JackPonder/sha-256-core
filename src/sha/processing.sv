@@ -27,9 +27,8 @@ module processing (
 // State encodings
 typedef enum logic [2:0] {
     StIdle,
-    StInitHash,
+    StInit,
     StChunk,
-    StInitVars,
     StLoop,
     StUpdate,
     StDone
@@ -62,21 +61,17 @@ always_comb begin
 
     case (state_q)
         StIdle: begin
-            state_d = StInitHash;
+            state_d = StInit;
         end
 
-        StInitHash: begin
+        StInit: begin
             state_d = StChunk;
         end
 
         StChunk: begin
             if (chunk_valid && chunk_ready) begin
-                state_d = StInitVars;
+                state_d = StLoop;
             end
-        end
-
-        StInitVars: begin
-            state_d = StLoop;
         end
 
         StLoop: begin
@@ -95,13 +90,8 @@ always_comb begin
         end
 
         StDone: begin
-            if (hash_valid) begin
-                if (hash_ready) begin
-                    state_d = StInitHash;
-                    count_d = '0;
-                end
-            end else begin
-                count_d = count_q + 1'b1;
+            if (hash_valid && hash_ready) begin
+                state_d = StInit;
             end
         end
 
@@ -240,7 +230,7 @@ assign t2 = s0u + maj;
 
 // Variable initialization and compression loop
 always_ff @(posedge clk) begin
-    if (state_q3 == StInitVars) begin
+    if (state_q3 == StChunk) begin
         a <= hash[0];
         b <= hash[1];
         c <= hash[2];
@@ -263,7 +253,7 @@ end
 
 // Hash values
 always_ff @(posedge clk) begin
-    if (state_q3 == StInitHash) begin
+    if (state_q3 == StInit) begin
         hash[0] <= 32'h6a09e667;
         hash[1] <= 32'hbb67ae85;
         hash[2] <= 32'h3c6ef372;
