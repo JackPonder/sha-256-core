@@ -1,4 +1,4 @@
-module digest_to_hex (
+module digest_to_ascii (
     // Clock / Reset
     input  logic clk,
     input  logic rst,

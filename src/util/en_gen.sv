@@ -9,10 +9,8 @@ module en_gen #(
     output logic en
 );
 
-// Counter
 logic [$clog2(DIVISOR)-1:0] count;
 
-//
 always_ff @(posedge clk) begin
     if (rst) begin
         count <= '0;

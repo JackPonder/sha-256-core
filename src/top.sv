@@ -30,7 +30,7 @@ uart_receiver uart_rx (
 logic [255:0] digest_data;
 logic digest_valid, digest_ready;
 
-sha256 sha256 (
+sha256 core (
     .clk(clk),
     .rst(rst),
 
@@ -50,7 +50,7 @@ sha256 sha256 (
 logic [7:0] hex_data;
 logic hex_valid, hex_ready;
 
-digest_to_hex digest_to_hex (
+digest_to_ascii converter (
     .clk(clk),
     .rst(rst),
 

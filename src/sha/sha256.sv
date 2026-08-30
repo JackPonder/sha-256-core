@@ -24,16 +24,16 @@ logic [31:0] wmem_din;
 logic wmem_en;
 logic wmem_we;
 
-sram #(
+block_ram #(
     .ADDR_WIDTH(6),
     .DATA_WIDTH(32)
 ) w_mem (
     .clk(clk),
-    .addra(wmem_addr),
-    .dina(wmem_din),
-    .douta(wmem_dout),
-    .ena(wmem_en),
-    .wea(wmem_we)
+    .addr(wmem_addr),
+    .din(wmem_din),
+    .dout(wmem_dout),
+    .en(wmem_en),
+    .we(wmem_we)
 );
 
 logic [5:0] kmem_addr;
@@ -41,17 +41,17 @@ logic [31:0] kmem_data;
 logic kmem_en;
 logic kmem_we;
 
-sram #(
+block_ram #(
     .ADDR_WIDTH(6),
     .DATA_WIDTH(32),
     .MEM_INIT_FILE("k.mem")
 ) k_mem (
     .clk(clk),
-    .addra(kmem_addr),
-    .ena(kmem_en),
-    .wea(kmem_we),
-    .dina(32'b0),
-    .douta(kmem_data)
+    .addr(kmem_addr),
+    .en(kmem_en),
+    .we(kmem_we),
+    .din(32'b0),
+    .dout(kmem_data)
 );
 
 //------------------------------------------------------------------------------
