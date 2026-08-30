@@ -36,24 +36,6 @@ sram #(
     .wea(wmem_we)
 );
 
-logic [2:0] hmem_addr;
-logic [31:0] hmem_data;
-logic hmem_en;
-logic hmem_we;
-
-sram #(
-    .ADDR_WIDTH(3),
-    .DATA_WIDTH(32),
-    .MEM_INIT_FILE("h.mem")
-) h_mem (
-    .clk(clk),
-    .addra(hmem_addr),
-    .ena(hmem_en),
-    .wea(hmem_we),
-    .dina(32'b0),
-    .douta(hmem_data)
-);
-
 logic [5:0] kmem_addr;
 logic [31:0] kmem_data;
 logic kmem_en;
@@ -111,11 +93,6 @@ processing processing (
     .wmem_dout(wmem_dout),
     .wmem_en(wmem_en),
     .wmem_we(wmem_we),
-
-    .hmem_addr(hmem_addr),
-    .hmem_data(hmem_data),
-    .hmem_en(hmem_en),
-    .hmem_we(hmem_we),
 
     .kmem_addr(kmem_addr),
     .kmem_data(kmem_data),

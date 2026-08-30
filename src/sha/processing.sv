@@ -16,12 +16,6 @@ module processing (
     output logic        wmem_en,
     output logic        wmem_we,
 
-    // H memory interface
-    output logic [2:0]  hmem_addr,
-    input  logic [31:0] hmem_data,
-    output logic        hmem_en,
-    output logic        hmem_we,
-
     // K memory interface
     output logic [5:0]  kmem_addr,
     input  logic [31:0] kmem_data,
@@ -41,8 +35,10 @@ module processing (
 // State encodings
 typedef enum logic [2:0] {
     StIdle,
+    StInitHash,
+    StChunk,
     StSchedule,
-    StInit,
+    StInitVars,
     StCompress,
     StUpdate,
     StDone
@@ -50,7 +46,8 @@ typedef enum logic [2:0] {
 
 // State registers
 state_t state_d, state_q, state_q2, state_q3;
-logic [5:0] count_d, count_q, count_q2, count_q3;
+logic [5:0] count_d, count_q;
+logic chunk_last_q;
 
 // State transition logic
 always_ff @(posedge clk) begin
@@ -59,56 +56,86 @@ always_ff @(posedge clk) begin
         state_q2 <= StIdle;
         state_q3 <= StIdle;
         count_q  <= '0;
-        count_q2 <= '0;
-        count_q3 <= '0;
     end else begin
         state_q  <= state_d;
         state_q2 <= state_q;
         state_q3 <= state_q2;
         count_q  <= count_d;
-        count_q2 <= count_q;
-        count_q3 <= count_q2;
     end
 end
 
 // Next state logic
 always_comb begin
-    // State transitions
-    case (state_q)
-        StIdle:     state_d = (chunk_valid) ? StSchedule : StIdle;
-        StSchedule: state_d = (count_q == 63) ? StInit : StSchedule;
-        StInit:     state_d = (count_q == 7) ? StCompress : StInit;
-        StCompress: state_d = (count_q == 63) ? StUpdate : StCompress;
-        StUpdate:   state_d = (count_q == 7) ? StDone : StUpdate;
-        StDone:     state_d = (hash_valid && hash_ready) ? StIdle : StDone;
-        default:    state_d = StIdle;
-    endcase
+    state_d = state_q;
+    count_d = count_q;
 
-    // Counter to track loop index
     case (state_q)
-        StIdle:     count_d = '0;
-        StSchedule: count_d = (count_q + 1'b1);
-        StInit:     count_d = (count_q + 1'b1) % 8;
-        StCompress: count_d = (count_q + 1'b1);
-        StUpdate:   count_d = (count_q + 1'b1) % 8;
-        StDone:     count_d = '0;
-        default:    count_d = '0;
+        StIdle: begin
+            state_d = StInitHash;
+        end
+
+        StInitHash: begin
+            state_d = StChunk;
+        end
+
+        StChunk: begin
+            if (chunk_valid && chunk_ready) begin
+                state_d = StSchedule;
+            end
+        end
+
+        StSchedule: begin
+            if (count_q == 6'd63) begin
+                state_d = StInitVars;
+            end
+            count_d = count_q + 1'b1;
+        end
+
+        StInitVars: begin
+            state_d = StCompress;
+        end
+
+        StCompress: begin
+            if (count_q == 6'd63) begin
+                state_d = StUpdate;
+            end
+            count_d = count_q + 1'b1;
+        end
+
+        StUpdate: begin
+            if (chunk_last_q) begin
+                state_d = StDone;
+            end else begin
+                state_d = StChunk;
+            end
+        end
+
+        StDone: begin
+            if (hash_valid) begin
+                if (hash_ready) begin
+                    state_d = StInitHash;
+                    count_d = '0;
+                end
+            end else begin
+                count_d = count_q + 1'b1;
+            end
+        end
+
+        default: begin
+            state_d = StIdle;
+            count_d = '0;
+        end
     endcase
 end
 
 // Handshake signals
-assign chunk_ready = (state_q == StIdle);
-assign hash_valid = (state_q3 == StDone);
+assign chunk_ready = (state_q == StChunk);
+assign hash_valid = (state_q == StDone) && (count_q == 6'd2);
 
 // W memory
 assign wmem_addr = count_q;
 assign wmem_en = (state_q == StSchedule) || (state_q == StCompress);
 assign wmem_we = (state_q == StSchedule);
-
-// H memory
-assign hmem_addr = count_q[2:0];
-assign hmem_en = (state_q == StInit) || (state_q == StUpdate);
-assign hmem_we = 1'b0;
 
 // K memory
 assign kmem_addr = count_q;
@@ -119,11 +146,13 @@ assign kmem_we = 1'b0;
 // Datapath
 //------------------------------------------------------------------------------
 
+// Message chunk
 logic [511:0] chunk;
-
 always_ff @(posedge clk) begin
-    if (chunk_ready && chunk_valid)
+    if (chunk_ready && chunk_valid) begin
         chunk <= chunk_data;
+        chunk_last_q <= chunk_last;
+    end
 end
 
 // Message scheduling
@@ -203,6 +232,7 @@ always_comb begin
 end
 
 // Compression loop
+logic [31:0] hash[8];
 logic [31:0] a, b, c, d, e, f, g, h;
 logic [31:0] s0u, s1u, t1, t2, ch, maj;
 
@@ -232,17 +262,15 @@ assign t2 = s0u + maj;
 
 // Variable initialization and compression loop
 always_ff @(posedge clk) begin
-    if (state_q3 == StInit) begin
-        unique case (count_q3[2:0])
-            3'd0: a <= hmem_data;
-            3'd1: b <= hmem_data;
-            3'd2: c <= hmem_data;
-            3'd3: d <= hmem_data;
-            3'd4: e <= hmem_data;
-            3'd5: f <= hmem_data;
-            3'd6: g <= hmem_data;
-            3'd7: h <= hmem_data; 
-        endcase
+    if (state_q3 == StInitVars) begin
+        a <= hash[0];
+        b <= hash[1];
+        c <= hash[2];
+        d <= hash[3];
+        e <= hash[4];
+        f <= hash[5];
+        g <= hash[6];
+        h <= hash[7];
     end else if (state_q3 == StCompress) begin
         h <= g;
         g <= f;
@@ -255,20 +283,39 @@ always_ff @(posedge clk) begin
     end
 end
 
-// Final hash computation
+// Hash values
 always_ff @(posedge clk) begin
-    if (state_q3 == StUpdate) begin
-        unique case (count_q3[2:0])
-            3'd0: hash_data <= {hash_data[223:0], hmem_data + a};
-            3'd1: hash_data <= {hash_data[223:0], hmem_data + b};
-            3'd2: hash_data <= {hash_data[223:0], hmem_data + c};
-            3'd3: hash_data <= {hash_data[223:0], hmem_data + d};
-            3'd4: hash_data <= {hash_data[223:0], hmem_data + e};
-            3'd5: hash_data <= {hash_data[223:0], hmem_data + f};
-            3'd6: hash_data <= {hash_data[223:0], hmem_data + g};
-            3'd7: hash_data <= {hash_data[223:0], hmem_data + h}; 
-        endcase
+    if (state_q3 == StInitHash) begin
+        hash[0] <= 32'h6a09e667;
+        hash[1] <= 32'hbb67ae85;
+        hash[2] <= 32'h3c6ef372;
+        hash[3] <= 32'ha54ff53a;
+        hash[4] <= 32'h510e527f;
+        hash[5] <= 32'h9b05688c;
+        hash[6] <= 32'h1f83d9ab;
+        hash[7] <= 32'h5be0cd19;
+    end else if (state_q3 == StUpdate) begin
+        hash[0] <= hash[0] + a;
+        hash[1] <= hash[1] + b;
+        hash[2] <= hash[2] + c;
+        hash[3] <= hash[3] + d;
+        hash[4] <= hash[4] + e;
+        hash[5] <= hash[5] + f;
+        hash[6] <= hash[6] + g;
+        hash[7] <= hash[7] + h;
     end
 end
+
+// Final hash computation
+assign hash_data = {
+    hash[0],
+    hash[1],
+    hash[2],
+    hash[3],
+    hash[4],
+    hash[5],
+    hash[6],
+    hash[7]
+};
 
 endmodule
