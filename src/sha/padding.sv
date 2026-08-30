@@ -21,6 +21,7 @@ module padding (
 
 // State encodings
 typedef enum logic [1:0] {
+    StIdle,
     StText,
     StZero,
     StLength
@@ -33,7 +34,7 @@ logic [6:0] count_d, count_q;
 // State transition logic
 always_ff @(posedge clk) begin
     if (rst) begin
-        state_q <= StText;
+        state_q <= StIdle;
         count_q <= '0;
     end else begin
         state_q <= state_d;
@@ -56,6 +57,10 @@ always_comb begin
         end
     end else begin
         case (state_q)
+            StIdle: begin
+                state_d = StText;
+            end
+
             StText: begin
                 if (text_ready && text_valid) begin
                     if (text_last) begin
@@ -81,8 +86,8 @@ always_comb begin
             end
 
             default: begin
-                state_d = state_q;
-                count_d = count_q;
+                state_d = StIdle;
+                count_d = '0;
             end
         endcase
     end
