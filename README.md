@@ -7,6 +7,9 @@ resulting 256-bit SHA-256 digest to be returned as a hexadecimal ASCII string.
 
 ## System Architecture
 
+The system is structured as a modular pipelined processing chain. Each module 
+transmits data with the previous and next modules via AXI-style ready/valid handshakes. 
+
 ### Block Diagram
 
 ![Block Diagram](docs/block-diagram.png)
@@ -20,6 +23,18 @@ resulting 256-bit SHA-256 digest to be returned as a hexadecimal ASCII string.
 | Processing                | Implements the core cryptographic digest algorithm, consisting of 64-word message scheduling,  working variable initialization, and a 64-iteration compression loop |
 | Digest-to-ASCII Converter | Converts the 256-bit digest to hexadecimal ASCII characters, followed by a carriage return and  line feed |
 | UART Transmitter          | Serializes and transmits the resulting ASCII characters |
+
+## Verification
+
+The SHA-256 core has been verified using automated SystemVerilog testbenches, 
+with test vectors from https://di-mgt.com.au/sha_testvectors.html.
+
+### Example Test Vector
+
+```
+Input Text: "abc"
+Expected Ouput: ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
+```
 
 ## Performance & Resource Utilization
 
