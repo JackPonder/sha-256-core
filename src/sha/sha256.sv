@@ -18,28 +18,9 @@ module sha256 (
 // RAMs
 //------------------------------------------------------------------------------
 
-logic [5:0] wmem_addr;
-logic [31:0] wmem_dout;
-logic [31:0] wmem_din;
-logic wmem_en;
-logic wmem_we;
-
-block_ram #(
-    .ADDR_WIDTH(6),
-    .DATA_WIDTH(32)
-) w_mem (
-    .clk(clk),
-    .addr(wmem_addr),
-    .din(wmem_din),
-    .dout(wmem_dout),
-    .en(wmem_en),
-    .we(wmem_we)
-);
-
 logic [5:0] kmem_addr;
 logic [31:0] kmem_data;
 logic kmem_en;
-logic kmem_we;
 
 block_ram #(
     .ADDR_WIDTH(6),
@@ -49,7 +30,7 @@ block_ram #(
     .clk(clk),
     .addr(kmem_addr),
     .en(kmem_en),
-    .we(kmem_we),
+    .we(1'b0),
     .din(32'b0),
     .dout(kmem_data)
 );
@@ -88,16 +69,9 @@ processing processing (
     .chunk_valid(chunk_valid),
     .chunk_ready(chunk_ready),
 
-    .wmem_addr(wmem_addr),
-    .wmem_din(wmem_din),
-    .wmem_dout(wmem_dout),
-    .wmem_en(wmem_en),
-    .wmem_we(wmem_we),
-
     .kmem_addr(kmem_addr),
     .kmem_data(kmem_data),
     .kmem_en(kmem_en),
-    .kmem_we(kmem_we),
     
     .hash_data(hash_data),
     .hash_valid(hash_valid),

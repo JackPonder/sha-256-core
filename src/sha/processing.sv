@@ -9,18 +9,10 @@ module processing (
     input  logic         chunk_valid,
     output logic         chunk_ready,
 
-    // W memory interface
-    output logic [5:0]  wmem_addr,
-    output logic [31:0] wmem_din,
-    input  logic [31:0] wmem_dout,
-    output logic        wmem_en,
-    output logic        wmem_we,
-
     // K memory interface
     output logic [5:0]  kmem_addr,
     input  logic [31:0] kmem_data,
     output logic        kmem_en,
-    output logic        kmem_we,
 
     // Output bus
     output logic [255:0] hash_data,
@@ -37,9 +29,8 @@ typedef enum logic [2:0] {
     StIdle,
     StInitHash,
     StChunk,
-    StSchedule,
     StInitVars,
-    StCompress,
+    StLoop,
     StUpdate,
     StDone
 } state_t;
@@ -80,22 +71,15 @@ always_comb begin
 
         StChunk: begin
             if (chunk_valid && chunk_ready) begin
-                state_d = StSchedule;
-            end
-        end
-
-        StSchedule: begin
-            if (count_q == 6'd63) begin
                 state_d = StInitVars;
             end
-            count_d = count_q + 1'b1;
         end
 
         StInitVars: begin
-            state_d = StCompress;
+            state_d = StLoop;
         end
 
-        StCompress: begin
+        StLoop: begin
             if (count_q == 6'd63) begin
                 state_d = StUpdate;
             end
@@ -130,17 +114,11 @@ end
 
 // Handshake signals
 assign chunk_ready = (state_q == StChunk);
-assign hash_valid = (state_q == StDone) && (count_q == 6'd2);
-
-// W memory
-assign wmem_addr = count_q;
-assign wmem_en = (state_q == StSchedule) || (state_q == StCompress);
-assign wmem_we = (state_q == StSchedule);
+assign hash_valid = (state_q == StDone) && (state_q3 == StDone);
 
 // K memory
 assign kmem_addr = count_q;
-assign kmem_en = (state_q == StCompress);
-assign kmem_we = 1'b0;
+assign kmem_en = (state_q == StLoop);
 
 //------------------------------------------------------------------------------
 // Datapath
@@ -156,7 +134,7 @@ always_ff @(posedge clk) begin
 end
 
 // Message scheduling
-logic [31:0] w2, w7, w15, w16;
+logic [31:0] wi, w2, w7, w15, w16;
 logic [31:0] s0l, s1l;
 
 delay #(
@@ -164,7 +142,7 @@ delay #(
     .DEPTH(2)
 ) delay2 (
     .clk(clk),
-    .din(wmem_din),
+    .din(wi),
     .dout(w2)
 );
 
@@ -173,7 +151,7 @@ delay #(
     .DEPTH(7)
 ) delay7 (
     .clk(clk),
-    .din(wmem_din),
+    .din(wi),
     .dout(w7)
 );
 
@@ -182,7 +160,7 @@ delay #(
     .DEPTH(15)
 ) delay15 (
     .clk(clk),
-    .din(wmem_din),
+    .din(wi),
     .dout(w15)
 );
 
@@ -191,7 +169,7 @@ delay #(
     .DEPTH(16)
 ) delay16 (
     .clk(clk),
-    .din(wmem_din),
+    .din(wi),
     .dout(w16)
 );
 
@@ -206,28 +184,28 @@ always_comb begin
     // Values 0-15 are copied from M block
     if (count_q < 16) begin
         unique case (count_q[3:0])
-            4'd0:  wmem_din = chunk[480+:32];
-            4'd1:  wmem_din = chunk[448+:32];
-            4'd2:  wmem_din = chunk[416+:32];
-            4'd3:  wmem_din = chunk[384+:32];
-            4'd4:  wmem_din = chunk[352+:32];
-            4'd5:  wmem_din = chunk[320+:32];
-            4'd6:  wmem_din = chunk[288+:32];
-            4'd7:  wmem_din = chunk[256+:32];
-            4'd8:  wmem_din = chunk[224+:32];
-            4'd9:  wmem_din = chunk[192+:32];
-            4'd10: wmem_din = chunk[160+:32];
-            4'd11: wmem_din = chunk[128+:32];
-            4'd12: wmem_din = chunk[96+:32];
-            4'd13: wmem_din = chunk[64+:32];
-            4'd14: wmem_din = chunk[32+:32];
-            4'd15: wmem_din = chunk[0+:32];
+            4'd0:  wi = chunk[480+:32];
+            4'd1:  wi = chunk[448+:32];
+            4'd2:  wi = chunk[416+:32];
+            4'd3:  wi = chunk[384+:32];
+            4'd4:  wi = chunk[352+:32];
+            4'd5:  wi = chunk[320+:32];
+            4'd6:  wi = chunk[288+:32];
+            4'd7:  wi = chunk[256+:32];
+            4'd8:  wi = chunk[224+:32];
+            4'd9:  wi = chunk[192+:32];
+            4'd10: wi = chunk[160+:32];
+            4'd11: wi = chunk[128+:32];
+            4'd12: wi = chunk[96+:32];
+            4'd13: wi = chunk[64+:32];
+            4'd14: wi = chunk[32+:32];
+            4'd15: wi = chunk[0+:32];
         endcase
     end
 
     // Values 16-63 are computed using previous values
     else begin
-        wmem_din = w16 + s0l + w7 + s1l;
+        wi = w16 + s0l + w7 + s1l;
     end
 end
 
@@ -257,7 +235,7 @@ majority majority (
     .maj(maj)
 );
 
-assign t1 = h + s1u + ch + kmem_data + wmem_dout;
+assign t1 = h + s1u + ch + kmem_data + w2;
 assign t2 = s0u + maj;
 
 // Variable initialization and compression loop
@@ -271,7 +249,7 @@ always_ff @(posedge clk) begin
         f <= hash[5];
         g <= hash[6];
         h <= hash[7];
-    end else if (state_q3 == StCompress) begin
+    end else if (state_q3 == StLoop) begin
         h <= g;
         g <= f;
         f <= e;

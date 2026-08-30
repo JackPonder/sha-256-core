@@ -42,14 +42,14 @@ Target Device: Xilinx Artix-7 XC7A35TCPG236-1
 
 | Resource            | Used | Available | Utilization % |
 | :------------------ | ---: | --------: | ------------: |
-| Slice LUTs          | 1293 |     20800 |          6.22 |
-| Slice Registers     | 2104 |     41600 |          5.06 |
-| Block RAM           |    1 |        50 |          2.00 |
+| Slice LUTs          | 1290 |     20800 |          6.20 |
+| Slice Registers     | 2124 |     41600 |          5.11 |
+| Block RAM           |  0.5 |        50 |          1.00 |
 | DSP Slices          |    0 |        90 |          0.00 |
 
-| Performance Metric        |   Result |
-| :------------------       | -------: |
-| Max Frequency             |  105 MHz |
-| Cycles per 512-bit block  |      131 |
-| Latency per 512-bit block |  1.25 us |
-| Throughput                | 410 Mb/s |
+| Performance Metric        |    Result |
+| :------------------       | --------: |
+| Max Frequency             |   102 MHz |
+| Cycles per 512-bit block  |        67 |
+| Latency per 512-bit block |    656 ns |
+| Throughput                |  779 Mb/s |
