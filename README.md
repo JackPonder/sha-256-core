@@ -33,7 +33,7 @@ with test vectors from https://di-mgt.com.au/sha_testvectors.html.
 
 ```
 Input Text: "abc"
-Expected Ouput: ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
+Expected Output: ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
 ```
 
 ## Performance & Resource Utilization

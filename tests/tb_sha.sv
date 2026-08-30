@@ -107,11 +107,11 @@ task automatic test_sequence(input string text, input logic [255:0] digest);
     $display("========================================");
     $display("TEST #%0d", test_id++);
     $display("Input: \"%s\"", text);
-    $display("Expected Ouput: %h", digest);
+    $display("Expected Output: %h", digest);
     while (1) begin
         @(posedge clk);
         if (hash_valid && hash_ready) begin
-            $display("Actual Ouput:   %h", hash_data);
+            $display("Actual Output:   %h", hash_data);
             break;
         end
     end
