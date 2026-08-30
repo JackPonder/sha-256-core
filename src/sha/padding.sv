@@ -10,6 +10,7 @@ module padding (
 
     // Output bus
     output logic [511:0] chunk_data,
+    output logic         chunk_last,
     output logic         chunk_valid,
     input  logic         chunk_ready
 );
@@ -19,76 +20,99 @@ module padding (
 //------------------------------------------------------------------------------
 
 // State encodings
-typedef enum logic [2:0] {
-    StInit,
+typedef enum logic [1:0] {
     StText,
     StZero,
-    StLength,
-    StDone
+    StLength
 } state_t;
 
 // State registers
 state_t state_d, state_q;
-logic [5:0] count_d, count_q;
+logic [6:0] count_d, count_q;
 
 // State transition logic
 always_ff @(posedge clk) begin
     if (rst) begin
-        state_q  <= StInit;
-        count_q  <= '0;
+        state_q <= StText;
+        count_q <= '0;
     end else begin
-        state_q  <= state_d;
-        count_q  <= count_d;
+        state_q <= state_d;
+        count_q <= count_d;
     end
 end
 
 // Next state logic
-wire terminator = (text_data == 8'h0d) || (text_data == 8'h0a) || (text_data == 8'h00);
+wire text_last = (text_data == 8'h0d);
 always_comb begin
-    // State transitions
-    case (state_q)
-        StInit:   state_d = StText;
-        StText:   state_d = (text_valid && terminator) ? StZero : StText;
-        StZero:   state_d = (count_q == 55) ? StLength : StZero;
-        StLength: state_d = (count_q == 63) ? StDone : StLength;
-        StDone:   state_d = (chunk_ready) ? StInit : StDone;
-        default:  state_d = StInit;
-    endcase
+    state_d = state_q;
+    count_d = count_q;
 
-    // Counter
-    case (state_q)
-        StInit:   count_d = '0;
-        StText:   count_d = text_valid ? (count_q + 1'b1) : count_q;
-        StZero:   count_d = count_q + 1'b1;
-        StLength: count_d = count_q + 1'b1;
-        StDone:   count_d = '0;
-        default:  count_d = '0;
-    endcase
+    if (chunk_valid) begin
+        if (chunk_ready) begin
+            if (chunk_last) begin
+                state_d = StText;
+            end
+            count_d = '0;
+        end
+    end else begin
+        case (state_q)
+            StText: begin
+                if (text_ready && text_valid) begin
+                    if (text_last) begin
+                        if (count_q == 7'd55) begin
+                            state_d = StLength;
+                        end else begin
+                            state_d = StZero;
+                        end
+                    end
+                    count_d = count_q + 1'b1;
+                end
+            end
+
+            StZero: begin
+                if (count_q == 7'd55) begin
+                    state_d = StLength;
+                end
+                count_d = count_q + 1'b1;
+            end
+
+            StLength: begin
+                count_d = count_q + 1'b1;
+            end
+
+            default: begin
+                state_d = state_q;
+                count_d = count_q;
+            end
+        endcase
+    end
 end
 
 // Handshake signals
-assign text_ready = (state_q == StText);
-assign chunk_valid = (state_q == StDone);
+assign text_ready = (count_q < 7'd64) && (state_q == StText);
+assign chunk_valid = (count_q == 7'd64);
+assign chunk_last = (state_q == StLength);
 
-// Output logic
-wire init = (state_q == StInit);
-wire shift_text = (state_q == StText) && text_valid && !terminator;
-wire shift_one = (state_q == StText) && text_valid && terminator;
-wire shift_zero = (state_q == StZero);
-wire shift_length = (state_q == StLength);
+// Shift register signals
+wire shift_text = (count_q < 7'd64) && (state_q == StText) && text_valid && !text_last;
+wire shift_one = (count_q < 7'd64) && (state_q == StText) && text_valid && text_last;
+wire shift_zero = (count_q < 7'd64) && (state_q == StZero);
+wire shift_length = (count_q < 7'd64) && (state_q == StLength);
 
 //------------------------------------------------------------------------------
 // Datapath
 //------------------------------------------------------------------------------
 
-// Message bit length
+// Message bit length counter
 logic [63:0] msg_bit_length;
 
 always_ff @(posedge clk) begin
-    if (init)
+    if (rst)
         msg_bit_length <= '0;
-    if (shift_text)
+    else if (shift_text)
         msg_bit_length <= msg_bit_length + 64'd8;
+    else if (chunk_ready && chunk_valid && chunk_last)
+        msg_bit_length <= '0;
 end
 
 // Message chunk shift register
@@ -101,16 +125,16 @@ always_ff @(posedge clk) begin
         chunk_data <= {chunk_data[503:0], 8'h00};
     end else if (shift_length) begin
         unique case (count_q[2:0])
-            3'd0: chunk_data <= {chunk_data[503:0], msg_bit_length[56+:8]}; 
-            3'd1: chunk_data <= {chunk_data[503:0], msg_bit_length[48+:8]}; 
-            3'd2: chunk_data <= {chunk_data[503:0], msg_bit_length[40+:8]}; 
-            3'd3: chunk_data <= {chunk_data[503:0], msg_bit_length[32+:8]}; 
-            3'd4: chunk_data <= {chunk_data[503:0], msg_bit_length[24+:8]}; 
-            3'd5: chunk_data <= {chunk_data[503:0], msg_bit_length[16+:8]}; 
-            3'd6: chunk_data <= {chunk_data[503:0], msg_bit_length[8+:8]}; 
-            3'd7: chunk_data <= {chunk_data[503:0], msg_bit_length[0+:8]}; 
+            3'd0: chunk_data <= {chunk_data[503:0], msg_bit_length[56+:8]};
+            3'd1: chunk_data <= {chunk_data[503:0], msg_bit_length[48+:8]};
+            3'd2: chunk_data <= {chunk_data[503:0], msg_bit_length[40+:8]};
+            3'd3: chunk_data <= {chunk_data[503:0], msg_bit_length[32+:8]};
+            3'd4: chunk_data <= {chunk_data[503:0], msg_bit_length[24+:8]};
+            3'd5: chunk_data <= {chunk_data[503:0], msg_bit_length[16+:8]};
+            3'd6: chunk_data <= {chunk_data[503:0], msg_bit_length[8+:8]};
+            3'd7: chunk_data <= {chunk_data[503:0], msg_bit_length[0+:8]};
         endcase
-    end 
+    end
 end
-    
+
 endmodule

@@ -5,6 +5,7 @@ module processing (
 
     // Input bus
     input  logic [511:0] chunk_data,
+    input  logic         chunk_last,
     input  logic         chunk_valid,
     output logic         chunk_ready,
 

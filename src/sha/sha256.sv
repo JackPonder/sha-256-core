@@ -77,7 +77,7 @@ sram #(
 //------------------------------------------------------------------------------
 
 logic [511:0] chunk_data;
-logic chunk_valid, chunk_ready;
+logic chunk_valid, chunk_ready, chunk_last;
 
 padding padding (
     .clk(clk),
@@ -88,6 +88,7 @@ padding padding (
     .text_ready(text_ready),
 
     .chunk_data(chunk_data),
+    .chunk_last(chunk_last),
     .chunk_valid(chunk_valid),
     .chunk_ready(chunk_ready)
 );
@@ -101,6 +102,7 @@ processing processing (
     .rst(rst),
 
     .chunk_data(chunk_data),
+    .chunk_last(chunk_last),
     .chunk_valid(chunk_valid),
     .chunk_ready(chunk_ready),
 
