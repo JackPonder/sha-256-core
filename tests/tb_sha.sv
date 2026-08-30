@@ -9,11 +9,20 @@ module tb_sha();
 // Settings
 localparam int CLK_FREQ = 100e6;
 localparam int CLK_PERIOD = 1e9 / CLK_FREQ;
-localparam int TEST_LENGTH = 6;
 
-// Test vector
-logic [7:0] vector [TEST_LENGTH];
-initial $readmemh("message.mem", vector);
+// Test values
+string test_inputs[$] = {
+    "abc",
+    "",
+    "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq",
+    "abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu"
+};
+logic [255:0] test_outputs[$] = {
+    'hba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad,
+    'he3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855,
+    'h248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1,
+    'hcf5b16a778af8380036ce59e7b0492370b249b11e8f07a51afac45037afee9d1
+};
 
 // Clock / Reset
 logic clk;
@@ -64,38 +73,48 @@ initial begin
     repeat(10) @(posedge clk);
 end
 
-// Test sequence
+// Test sequences
 initial begin
-    text_data <= vector[0];
+    while (test_inputs.size() != 0) begin
+        test_sequence(test_inputs.pop_front(), test_outputs.pop_front());
+    end
+end
+
+task automatic test_sequence(input string text, input logic [255:0] digest);
+    static int test_id = 1;
+
     text_valid <= 1'b0;
     hash_ready <= 1'b0;
     repeat(100) @(posedge clk);
 
-    for (int i = 1; i < TEST_LENGTH;) begin
+    for (int i = 0; i <= text.len();) begin
         text_valid <= 1'b1;
+        if (i < text.len()) begin
+            text_data <= text[i];
+        end else begin
+            text_data <= 8'h0d;
+        end
+
         @(posedge clk);
         if (text_valid && text_ready) begin
-            text_data <= vector[i++];
+            i++;
         end
     end
 
-    @(posedge clk);
     text_valid <= 1'b0;
     hash_ready <= 1'b1;
-end
 
-// Log results
-initial begin
     $display("========================================");
-    $display("TEST #1");
-    $display("Input Text: %s", string'(vector[0:TEST_LENGTH-2]));
+    $display("TEST #%0d", test_id++);
+    $display("Input: \"%s\"", text);
+    $display("Expected Ouput: %h", digest);
     while (1) begin
         @(posedge clk);
         if (hash_valid && hash_ready) begin
-            $display("Output Digest: %h", hash_data);
+            $display("Actual Ouput:   %h", hash_data);
             break;
         end
     end
-end
+endtask
 
 endmodule
