@@ -12,7 +12,7 @@ set project_root [file dirname $script_dir]
 
 # Create project and directory structure
 set build_dir "$project_root/build"
-create_project $project_name $build_dir -force
+create_project $project_name $build_dir -part $fpga_part -force
 
 # Add design sources
 set src_dir "$project_root/src"
