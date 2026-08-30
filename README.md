@@ -19,7 +19,7 @@ transmits data with the previous and next modules via AXI-style ready/valid hand
 | Module                    | Description |
 | :---                      | :--- |
 | UART Receiver             | Deserializes message bytes from the host computer and passes them to the SHA-256 core. |
-| Padding                   | Buffers incoming bytes and creates a 512-bit message chunk consisting of the message bytes,  followed by a '1', zero-padding and the 64-bit message length |
+| Padding                   | Buffers incoming bytes and creates 512-bit message chunks for processing |
 | Processing                | Implements the core cryptographic digest algorithm, consisting of 64-word message scheduling,  working variable initialization, and a 64-iteration compression loop |
 | Digest-to-ASCII Converter | Converts the 256-bit digest to hexadecimal ASCII characters, followed by a carriage return and  line feed |
 | UART Transmitter          | Serializes and transmits the resulting ASCII characters |
@@ -36,13 +36,20 @@ Input Text: "abc"
 Expected Output: ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
 ```
 
-## Performance & Resource Utilization
+## Resource Utilization & Performance
 
 Target Device: Xilinx Artix-7 XC7A35TCPG236-1
 
-| Resource      | Used | Available | Utilization % |
-| :------------ | ---: | --------: | ------------: |
-| LUTs          | 1384 |     20800 |          6.65 |
-| Registers     | 2224 |     41600 |          5.35 |
-| Block RAM     |    1 |        50 |          2.00 |
-| DSP Slices    |    0 |        90 |          0.00 |
+| Resource            | Used | Available | Utilization % |
+| :------------------ | ---: | --------: | ------------: |
+| Slice LUTs          | 1293 |     20800 |          6.22 |
+| Slice Registers     | 2104 |     41600 |          5.06 |
+| Block RAM           |    1 |        50 |          2.00 |
+| DSP Slices          |    0 |        90 |          0.00 |
+
+| Performance Metric        |   Result |
+| :------------------       | -------: |
+| Max Frequency             |  105 MHz |
+| Cycles per 512-bit block  |      131 |
+| Latency per 512-bit block |  1.25 us |
+| Throughput                | 410 Mb/s |
