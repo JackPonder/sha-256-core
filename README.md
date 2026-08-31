@@ -36,20 +36,22 @@ Input Text: "abc"
 Expected Output: ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
 ```
 
-## Resource Utilization & Performance
+## Resource Utilization
 
 Target Device: Xilinx Artix-7 XC7A35TCPG236-1
 
 | Resource            | Used | Available | Utilization % |
 | :------------------ | ---: | --------: | ------------: |
-| Slice LUTs          | 1285 |     20800 |          6.18 |
-| Slice Registers     | 2133 |     41600 |          5.13 |
+| Slice LUTs          | 1284 |     20800 |          6.17 |
+| Slice Registers     | 2118 |     41600 |          5.09 |
 | Block RAM           |  0.5 |        50 |          1.00 |
 | DSP Slices          |    0 |        90 |          0.00 |
 
-| Performance Metric        |    Result |
+## Performance
+
+| Metric                    |    Result |
 | :------------------------ | --------: |
 | Max Frequency             |   109 MHz |
-| Cycles per 512-bit block  |        66 |
-| Latency                   |    605 ns |
-| Throughput                |  845 Mb/s |
+| Cycles per 512-bit block  |        68 |
+| Latency                   |    624 ns |
+| Throughput                |  820 Mb/s |
