@@ -1,4 +1,4 @@
-# SHA-256 Hardware Core
+# SHA-256 Hardware Accelerator
 
 A hardware implementation of the SHA-256 cryptographic hash algorithm written in 
 SystemVerilog and designed for FPGA deployment. The system communicates with a host 
